@@ -1,0 +1,1 @@
+DATABASE_URL = "postgresql://postgres:sarathi@localhost:5432/sarathi"

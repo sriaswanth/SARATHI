@@ -1,0 +1,27 @@
+# Python
+backend/venv/
+backend/__pycache__/
+**/__pycache__/
+*.pyc
+
+# Environment variables
+backend/.env
+.env
+
+# SQLite
+*.db
+
+# Node
+frontend/dashboard/node_modules/
+node_modules/
+
+# Build
+dist/
+build/
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.dbagents/intake-agent/.env 
