@@ -1,1 +1,6 @@
-DATABASE_URL = "postgresql://postgres:sarathi@localhost:5432/sarathi"
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./sarathi.db")

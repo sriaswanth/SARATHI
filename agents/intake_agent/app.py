@@ -1,8 +1,20 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import re
+import os
+import requests
 
-app = FastAPI()
+app = FastAPI(title="SARATHI Intake Agent", version="1.1.0")
+
+SARATHI_API_URL = os.getenv("SARATHI_API_URL", "http://localhost:8000")
+
+PRIORITY_MAP = {"CRITICAL": "Critical", "HIGH": "High", "MEDIUM": "Medium", "LOW": "Low"}
+INCIDENT_TYPE_MAP = {
+    "MEDICAL": "Heart Attack",
+    "FIRE": "Fire Accident",
+    "ACCIDENT": "Road Accident",
+    "DISASTER": "Flood Rescue",
+}
 
 PHONE_PATTERN = r'\b(?:\+91[-\s]?)?([6-9]\d{9})\b'
 NAME_PATTERNS = [r"(?:i'?m|i am|this is|my name is|name is)\s+([A-Z][a-z]+)"]
@@ -81,13 +93,22 @@ def get_followup(state):
     return None
 
 class IntakeRequest(BaseModel):
-    incident_id: str
+    incident_id: str = ""
     description: str
     language: str = "en"
 
+class ProcessResponse(BaseModel):
+    incident_id: int
+    priority: str
+    severity: str
+    ambulance: str
+    hospital: str
+    route: str
+    rationale: str
+
 @app.get("/")
 def health():
-    return {"status": "ok", "agent": "intake"}
+    return {"status": "ok", "agent": "intake", "version": "1.1.0"}
 
 @app.post("/extract")
 def extract(req: IntakeRequest):
@@ -112,3 +133,49 @@ def extract(req: IntakeRequest):
         "caller_name": name,
         "caller_phone": phone,
     }
+
+@app.post("/process", response_model=ProcessResponse)
+def process_full_pipeline(req: IntakeRequest):
+    text = req.description
+    name = extract_name(text)
+    phone = extract_phone(text)
+    location = extract_location(text)
+    emergency_type = extract_emergency_type(text)
+    severity = extract_severity(text, emergency_type)
+    victim_count = extract_victim_count(text)
+
+    resolved_location = location or "Unknown Location"
+    incident_type_str = INCIDENT_TYPE_MAP.get(emergency_type, "Road Accident")
+    priority = PRIORITY_MAP.get(severity, "Medium")
+
+    api = SARATHI_API_URL.rstrip("/")
+
+    inc_resp = requests.post(f"{api}/incidents", json={
+        "title": text[:100],
+        "type": incident_type_str,
+        "location": resolved_location,
+        "priority": priority,
+        "status": "Dispatching",
+    })
+    inc_resp.raise_for_status()
+    incident = inc_resp.json()
+    incident_id = incident["id"]
+
+    alloc_resp = requests.post(f"{api}/ai/recommend", json={
+        "incident_id": incident_id,
+        "location": resolved_location,
+        "incident_type": incident_type_str,
+        "priority": priority,
+    })
+    alloc_resp.raise_for_status()
+    alloc = alloc_resp.json()
+
+    return ProcessResponse(
+        incident_id=incident_id,
+        priority=priority,
+        severity=severity,
+        ambulance=alloc["recommended_ambulance"],
+        hospital=alloc["recommended_hospital"],
+        route=alloc["recommended_route"],
+        rationale=alloc["rationale"],
+    )

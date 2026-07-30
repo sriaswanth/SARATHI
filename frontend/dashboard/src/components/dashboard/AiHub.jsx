@@ -1,6 +1,25 @@
 import { useState } from "react";
 import { Sparkles, Bot, Route, Activity, CheckCircle2, Navigation } from "lucide-react";
 import { prioritizeComplaint, recommendAllocation } from "../../api/aiApi";
+import { createIncident } from "../../api/incidentApi";
+
+const INCIDENT_TYPE_MAP = [
+  { keywords: ["heart attack", "cardiac", "chest pain"], type: "Heart Attack" },
+  { keywords: ["accident", "collision", "pileup"], type: "Road Accident" },
+  { keywords: ["fire", "blaze", "burn"], type: "Fire Accident" },
+  { keywords: ["fracture", "trauma", "head injury", "bleeding"], type: "Trauma" },
+  { keywords: ["stroke", "seizure", "unconscious"], type: "Stroke" },
+  { keywords: ["neonatal", "infant", "premature"], type: "Neonatal Emergency" },
+  { keywords: ["flood", "rescue"], type: "Flood Rescue" },
+];
+
+function inferIncidentType(complaint) {
+  const lower = complaint.toLowerCase();
+  for (const entry of INCIDENT_TYPE_MAP) {
+    if (entry.keywords.some((k) => lower.includes(k))) return entry.type;
+  }
+  return "Road Accident";
+}
 
 function AiHub({ onIncidentCreated }) {
   const [complaint, setComplaint] = useState("");
@@ -18,13 +37,24 @@ function AiHub({ onIncidentCreated }) {
       const priorityData = await prioritizeComplaint({ complaint, location });
       setAiResult(priorityData);
 
+      const newIncident = await createIncident({
+        title: complaint,
+        type: inferIncidentType(complaint),
+        location,
+        priority: priorityData.priority,
+        status: "Dispatching",
+      });
+
       const allocationData = await recommendAllocation({
+        incident_id: newIncident.id,
         location,
         incident_type: priorityData.category,
         priority: priorityData.priority,
       });
       setRecommendation(allocationData);
       if (onIncidentCreated) onIncidentCreated();
+      setComplaint("");
+      setLocation("");
     } catch (err) {
       console.error("AI Prioritization failed:", err);
     } finally {

@@ -353,7 +353,7 @@ function EmergencyMap() {
 
           <div className="mt-4 pt-4 border-t border-slate-800 text-xs text-slate-400 flex items-center justify-between">
             <span className="flex items-center gap-1.5 text-slate-300">
-              <CheckCircle2 size={16} className="text-emerald-400" /> PostgreSQL DB Sync Active
+              <CheckCircle2 size={16} className="text-emerald-400" /> Live DB Sync Active
             </span>
             <span className="font-mono text-[10px] text-cyan-400 bg-cyan-950 px-2 py-0.5 rounded border border-cyan-800">
               UPDATE: 8s

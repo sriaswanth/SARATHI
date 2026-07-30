@@ -20,7 +20,7 @@ function Dashboard() {
           Emergency Response Operations Dashboard
         </h1>
         <p className="text-slate-400 mt-2 text-base">
-          Live operations telemetry connected directly to PostgreSQL database with AI emergency orchestration.
+          Live operations telemetry with AI emergency orchestration and real-time database sync.
         </p>
       </div>
 

@@ -41,6 +41,8 @@ function IncidentQueue({ refreshTrigger }) {
 
   useEffect(() => {
     fetchIncidents();
+    const interval = setInterval(fetchIncidents, 10000);
+    return () => clearInterval(interval);
   }, [refreshTrigger]);
 
   const handleCreate = async (e) => {
@@ -49,7 +51,10 @@ function IncidentQueue({ refreshTrigger }) {
       await createIncident({ title, type, location, priority, status });
       setShowAddModal(false);
       setTitle("");
+      setType("Road Accident");
       setLocation("");
+      setPriority("High");
+      setStatus("Dispatching");
       fetchIncidents();
     } catch (err) {
       console.error("Failed to create incident:", err);
@@ -189,6 +194,8 @@ function IncidentQueue({ refreshTrigger }) {
                   <option value="Heart Attack">Heart Attack</option>
                   <option value="Fire Accident">Fire Accident</option>
                   <option value="Trauma">Trauma</option>
+                  <option value="Stroke">Stroke</option>
+                  <option value="Neonatal Emergency">Neonatal Emergency</option>
                   <option value="Flood Rescue">Flood Rescue</option>
                 </select>
               </div>

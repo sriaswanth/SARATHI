@@ -30,29 +30,39 @@ function Ambulances() {
       setLoading(false);
     }
   };
+  const handleCreate = async (e) => {
+  e.preventDefault();
+
+  console.log("✅ handleCreate started");
+
+  try {
+    console.log("➡️ Before createAmbulance");
+
+    await createAmbulance({
+      vehicle_number: vehicleNumber,
+      driver_name: driverName,
+      contact,
+      location,
+      status,
+      type,
+    });
+
+    console.log("✅ createAmbulance finished");
+
+    setShowAddModal(false);
+    resetForm();
+    fetchAmbulances();
+  } catch (err) {
+    console.error("❌ Failed to create ambulance:", err);
+  }
+};
 
   useEffect(() => {
     fetchAmbulances();
   }, [search, statusFilter]);
+  
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    try {
-      await createAmbulance({
-        vehicle_number: vehicleNumber,
-        driver_name: driverName,
-        contact,
-        location,
-        status,
-        type,
-      });
-      setShowAddModal(false);
-      resetForm();
-      fetchAmbulances();
-    } catch (err) {
-      console.error("Failed to create ambulance:", err);
-    }
-  };
+   
 
   const handleUpdate = async (e) => {
     e.preventDefault();
@@ -77,10 +87,7 @@ function Ambulances() {
   const handleSimulateDispatch = async (amb) => {
     const nextStatus = amb.status === "Available" ? "On Duty" : "Available";
     try {
-      await updateAmbulance(amb.id, {
-        ...amb,
-        status: nextStatus,
-      });
+      await updateAmbulance(amb.id, { status: nextStatus });
       fetchAmbulances();
     } catch (err) {
       console.error("Failed to toggle ambulance status:", err);

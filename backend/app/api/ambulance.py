@@ -15,6 +15,8 @@ def get_ambulances(
     search: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
+    
+        
     query = db.query(Ambulance)
     if status and status != "All":
         query = query.filter(Ambulance.status == status)

@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, Float
-from datetime import datetime
+from datetime import datetime, timezone
 from app.database.database import Base
 
 
@@ -18,4 +18,4 @@ class Incident(Base):
     assigned_hospital = Column(String, nullable=True)
     recommended_route = Column(String, nullable=True)
     ai_summary = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
