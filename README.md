@@ -213,6 +213,11 @@ SARATHI solves these challenges using AI-powered automation and intelligent deci
 
 **Sri Aswanth**
 
+**Kanija Fathima**
+
+**Thipthi Shree**
+
+
 ---
 
 ## ❤️ Why SARATHI?
@@ -223,6 +228,4 @@ SARATHI transforms emergency response by combining Voice AI, Intelligent Agents,
 
 ---
 
-## ⭐ If you like this project...
 
-Give this repository a ⭐ and support the future of AI-powered emergency response.
