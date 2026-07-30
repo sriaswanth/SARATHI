@@ -6,6 +6,8 @@ from app.api.ambulance import router as ambulance_router
 from app.api.hospital import router as hospital_router
 from app.api.agent import router as agent_router
 from app.api.ai import router as ai_router
+from app.api.intake import router as intake_router
+from app.api.pipeline import router as pipeline_router
 from app.database.database import Base, engine, SessionLocal
 from app.database.seed import seed_db
 from app.models.hospital import Hospital
@@ -33,6 +35,8 @@ app.include_router(ambulance_router)
 app.include_router(hospital_router)
 app.include_router(agent_router)
 app.include_router(ai_router)
+app.include_router(intake_router, prefix="/api")
+app.include_router(pipeline_router, prefix="/api")
 
 @app.on_event("startup")
 def startup_event():

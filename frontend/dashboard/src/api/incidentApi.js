@@ -24,3 +24,7 @@ export const deleteIncident = async (id) => {
   const response = await api.delete(`/incidents/${id}`);
   return response.data;
 };
+export const reportIncident = async (text) => {
+  const response = await api.post("/api/report-incident", { text });
+  return response.data;
+};
