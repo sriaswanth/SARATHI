@@ -15,14 +15,16 @@ from intake_agent.agent import extract_incident
 
 # --- Setup ---
 load_dotenv(Path(__file__).parent / ".env")
+load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
+api_key = os.getenv("GROQ_API_KEY") or "dummy_key_for_dev"
 client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
-    api_key=os.getenv("GROQ_API_KEY"),
+    api_key=api_key,
 )
 
-TRIAGE_RULES = (Path(__file__).parent / "triage_rules.md").read_text()
-DISPATCH_RULES = (Path(__file__).parent / "dispatch_rules.md").read_text()
+TRIAGE_RULES = (Path(__file__).parent / "triage_rules.md").read_text() if (Path(__file__).parent / "triage_rules.md").exists() else ""
+DISPATCH_RULES = (Path(__file__).parent / "dispatch_rules.md").read_text() if (Path(__file__).parent / "dispatch_rules.md").exists() else ""
 
 RESOURCES = pd.read_csv(Path(__file__).parent / "resources.csv")
 
@@ -84,7 +86,7 @@ def haversine_km(lat1, lng1, lat2, lng2) -> float:
     a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlambda / 2) ** 2
     return 2 * R * math.asin(math.sqrt(a))
 
-# --- Node 0: Intake (LLM call using rules.md) ---
+# --- Node 0: Intake ---
 def intake_node(state: IncidentState) -> dict:
     result = extract_incident(state["raw_text"])
     return result
@@ -95,64 +97,92 @@ def route_after_intake(state: IncidentState) -> str:
         return "needs_clarification"
     return "triage"
 
-# --- Node 1: Triage (LLM call using triage_rules.md) ---
+# --- Node 1: Triage ---
 def triage_node(state: IncidentState) -> dict:
-    candidates = get_candidates(state["emergency_type"])
-    user_content = json.dumps({
-        "incident": dict(state),
-        "candidate_resources": candidates,
-    })
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": TRIAGE_RULES},
-            {"role": "user", "content": user_content},
-        ],
-        response_format={"type": "json_object"},
-    )
-    result = json.loads(response.choices[0].message.content)
-    return result
+    candidates = get_candidates(state.get("emergency_type", "MEDICAL"))
+    
+    if os.getenv("GROQ_API_KEY"):
+        try:
+            user_content = json.dumps({
+                "incident": dict(state),
+                "candidate_resources": candidates,
+            })
+            response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": TRIAGE_RULES},
+                    {"role": "user", "content": user_content},
+                ],
+                response_format={"type": "json_object"},
+            )
+            return json.loads(response.choices[0].message.content)
+        except Exception as e:
+            print(f"Triage LLM error: {e}. Using fallback triage.")
 
-# --- Node 2: Dispatch (ETA computed in code, then LLM writes notifications) ---
+    # Fallback triage logic
+    matched_id = candidates[0]["resource_id"] if candidates else "AMBULANCE_01"
+    return {
+        "priority_score": 9,
+        "priority_band": "P1_CRITICAL",
+        "matched_resource_id": matched_id,
+        "match_reasoning": "First available unit assigned via fallback rule.",
+        "escalation_needed": False,
+        "escalation_reason": None,
+    }
+
+# --- Node 2: Dispatch ---
 def dispatch_node(state: IncidentState) -> dict:
     matched_id = state.get("matched_resource_id")
     resource = None
-    eta_minutes = None
+    eta_minutes = 5
 
     if matched_id:
         row = RESOURCES[RESOURCES["resource_id"] == matched_id]
         if not row.empty:
             resource = row.iloc[0].to_dict()
-            # Fallback demo coordinates if incident has none yet (no geocoding built)
             inc_lat = state.get("incident_lat") or 13.0827
             inc_lng = state.get("incident_lng") or 80.2707
             distance_km = haversine_km(inc_lat, inc_lng, resource["lat"], resource["lng"])
-            avg_speed_kmh = 40  # assumed city emergency-vehicle speed
+            avg_speed_kmh = 40
             eta_minutes = max(1, round((distance_km / avg_speed_kmh) * 60))
 
-    user_content = json.dumps({
-        "priority_score": state.get("priority_score"),
-        "priority_band": state.get("priority_band"),
-        "matched_resource_id": matched_id,
-        "escalation_needed": state.get("escalation_needed"),
-        "resource": resource,
+    if os.getenv("GROQ_API_KEY"):
+        try:
+            user_content = json.dumps({
+                "priority_score": state.get("priority_score"),
+                "priority_band": state.get("priority_band"),
+                "matched_resource_id": matched_id,
+                "escalation_needed": state.get("escalation_needed"),
+                "resource": resource,
+                "eta_minutes": eta_minutes,
+                "location_text": state.get("location_text"),
+                "description": state.get("description"),
+            })
+
+            response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": DISPATCH_RULES},
+                    {"role": "user", "content": user_content},
+                ],
+                response_format={"type": "json_object"},
+            )
+            return json.loads(response.choices[0].message.content)
+        except Exception as e:
+            print(f"Dispatch LLM error: {e}. Using fallback dispatch.")
+
+    unit_name = (resource.get("name") or resource.get("resource_name")) if resource else "Emergency Unit 1"
+    loc = state.get("location_text") or "your location"
+    return {
+        "dispatch_status": "DISPATCHED",
+        "assigned_unit_name": unit_name,
         "eta_minutes": eta_minutes,
-        "location_text": state.get("location_text"),
-        "description": state.get("description"),
-    })
+        "responder_notification": f"ALERT: Dispatch {unit_name} to {loc}.",
+        "caller_notification": f"Emergency response unit {unit_name} has been dispatched to {loc}. Estimated arrival time is {eta_minutes} minutes.",
+        "hospital_notification": f"INCOMING PATIENT: ETA {eta_minutes} minutes.",
+    }
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": DISPATCH_RULES},
-            {"role": "user", "content": user_content},
-        ],
-        response_format={"type": "json_object"},
-    )
-    result = json.loads(response.choices[0].message.content)
-    return result
-
-# --- Graph assembly: intake -> (triage -> dispatch) OR END if clarification needed ---
+# --- Graph assembly ---
 builder = StateGraph(IncidentState)
 builder.add_node("intake", intake_node)
 builder.add_node("triage", triage_node)

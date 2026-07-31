@@ -46,9 +46,20 @@ def create_incident(data: IncidentCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_incident)
 
+    # Update assigned ambulance status if present
+    if new_incident.assigned_ambulance:
+        from app.models.ambulance import Ambulance
+        amb = db.query(Ambulance).filter(
+            (Ambulance.vehicle_number.ilike(f"%{new_incident.assigned_ambulance}%")) |
+            (Ambulance.driver_name.ilike(f"%{new_incident.assigned_ambulance}%"))
+        ).first()
+        if amb:
+            amb.status = "Dispatched"
+            db.commit()
+
     # Add audit log
     audit = AuditLog(
-        event=f"New Incident reported: {new_incident.type} at {new_incident.location} (Priority: {new_incident.priority})",
+        event=f"New Incident reported: {new_incident.type} at {new_incident.location} (Priority: {new_incident.priority}) - Assigned: {new_incident.assigned_ambulance or 'None'}",
         category="Incident"
     )
     db.add(audit)

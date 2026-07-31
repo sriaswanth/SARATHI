@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Python
 backend/venv/
 backend/__pycache__/
@@ -7,35 +6,11 @@ backend/__pycache__/
 
 # Environment variables
 backend/.env
+Voice-Flow/.env
 .env
 
-# SQLite
-*.db
-
-# Node
-frontend/dashboard/node_modules/
-node_modules/
-
-# Build
-dist/
-build/
-
-# VS Code
-.vscode/
-
-# OS files
-.DS_Store
-Thumbs.dbagents/intake-agent/.env 
-=======
-# Python
-backend/venv/
-backend/__pycache__/
-**/__pycache__/
-*.pyc
-
-# Environment variables
-backend/.env
-.env
+# Audio recordings
+*.wav
 
 # SQLite
 *.db
@@ -54,4 +29,3 @@ build/
 # OS files
 .DS_Store
 Thumbs.db
->>>>>>> f015de0 (Fix database integration and frontend-backend agent orchestration)
